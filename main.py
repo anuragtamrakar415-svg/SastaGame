@@ -75,7 +75,7 @@ def update():
         return
 
     # Scroll road texture to simulate movement
-    texture_offset -= speed * time.dt * 0.05
+    texture_offset += speed * time.dt * 0.05
     road.texture_offset = (0, texture_offset)
     grass_left.texture_offset = (0, texture_offset)
     grass_right.texture_offset = (0, texture_offset)
