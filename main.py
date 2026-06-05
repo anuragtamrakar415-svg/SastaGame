@@ -11,6 +11,10 @@ Sky()
 road_tex = load_texture('assets/road_texture.png')
 grass_tex = load_texture('assets/grass_texture.png')
 
+# Load Audio
+coin_sound = Audio('assets/coin.wav', autoplay=False, volume=0.5)
+crash_sound = Audio('assets/crash.wav', autoplay=False, volume=0.8)
+
 # Create Road and Grass with textures
 road = Entity(model='cube', texture=road_tex, color=color.white, scale=(12, 0.1, 200), position=(0, 0, 80), texture_scale=(1, 20))
 grass_left = Entity(model='cube', texture=grass_tex, color=color.white, scale=(100, 0.1, 200), position=(-56, 0, 80), texture_scale=(10, 20))
@@ -39,7 +43,7 @@ camera.position = (0, 6, -14)
 camera.rotation_x = 18
 
 # Game variables
-enemies = []
+enemies = []  # Contains both traffic and rivals
 coins = []
 score = 0
 game_over = False
@@ -53,6 +57,12 @@ texture_offset = 0
 score_text = Text(text=f'Score: {int(score)}', position=(-0.85, 0.45), scale=2, color=color.white)
 speed_text = Text(text=f'Speed: {int(current_speed * 2)} MPH', position=(0.55, 0.45), scale=2, color=color.yellow)
 game_over_text = Text(text='', position=(0,0), scale=4, origin=(0,0), color=color.red, font='VeraMono.ttf')
+pause_text = Text(text='PAUSED', position=(0,0), scale=5, origin=(0,0), color=color.orange, enabled=False)
+
+def input(key):
+    if key == 'p' and not game_over:
+        application.paused = not application.paused
+        pause_text.enabled = application.paused
 
 def update():
     global score, game_over, base_speed, current_speed, spawn_timer, coin_timer, texture_offset
@@ -93,7 +103,7 @@ def update():
 
     player.x = clamp(player.x, -5, 5)
 
-    # Spawn enemies (spawn faster if driving faster)
+    # Spawn cars
     spawn_timer -= (current_speed / base_speed) * time.dt
     if spawn_timer <= 0:
         spawn_enemy()
@@ -105,15 +115,21 @@ def update():
         spawn_coin()
         coin_timer = random.uniform(1.0, 3.0)
 
-    # Move enemies
+    # Move enemies (Traffic & Rivals)
     for e in enemies[:]:
-        e.z -= current_speed * time.dt
-        if e.z < -15:
-            enemies.remove(e)
-            destroy(e)
-            base_speed += 0.2 # Base difficulty increases over time
+        # Relative speed: If it's a rival, they have their own speed. Traffic is stationary relative to road (speed 0).
+        relative_speed = current_speed - getattr(e, 'drive_speed', 0)
+        e.z -= relative_speed * time.dt
+        
+        # Despawn if they go too far behind or too far ahead
+        if e.z < -20 or e.z > 200:
+            if e in enemies:
+                enemies.remove(e)
+                destroy(e)
+                base_speed += 0.2
         elif e.intersects(player).hit:
             game_over = True
+            crash_sound.play()
             game_over_text.text = f'CRASHED!\nFinal Score: {int(score)}\nPress SPACE to Restart'
 
     # Move and collect coins
@@ -125,18 +141,31 @@ def update():
             destroy(c)
         elif c.intersects(player).hit:
             score += 50
+            coin_sound.play()
             coins.remove(c)
             destroy(c)
 
 def spawn_enemy():
     x_pos = random.uniform(-4.5, 4.5)
     c = random.choice([color.red, color.yellow, color.magenta, color.orange, color.blue])
-    e = create_car(c, x_pos, 120)
+    
+    # Decide if it's Traffic (stationary) or a Rival (moving with you)
+    is_rival = random.random() < 0.4 # 40% chance to be a rival
+    
+    if is_rival:
+        # Rival spawns slightly closer, but drives away at a fast speed
+        e = create_car(c, x_pos, random.uniform(40, 80))
+        e.drive_speed = base_speed * random.uniform(1.2, 1.8)
+    else:
+        # Traffic just sits on the road
+        e = create_car(c, x_pos, 150)
+        e.drive_speed = 0
+        
     enemies.append(e)
 
 def spawn_coin():
     x_pos = random.uniform(-4.5, 4.5)
-    c = Entity(model='sphere', color=color.gold, scale=(1.5, 1.5, 1.5), position=(x_pos, 1, 120), collider='box')
+    c = Entity(model='sphere', color=color.gold, scale=(1.5, 1.5, 1.5), position=(x_pos, 1, 150), collider='box')
     c.rotation_x = 90
     coins.append(c)
 
