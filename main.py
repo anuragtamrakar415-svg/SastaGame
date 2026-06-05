@@ -1,7 +1,7 @@
 from ursina import *
 import random
 
-app = Ursina(title="Real 3D Racing Challenge")
+app = Ursina(title="Real 3D Racing Challenge", fullscreen=True)
 
 # Environment setup
 window.color = color.light_gray
@@ -136,7 +136,7 @@ def spawn_enemy():
 
 def spawn_coin():
     x_pos = random.uniform(-4.5, 4.5)
-    c = Entity(model='cylinder', color=color.gold, scale=(1.5, 0.2, 1.5), position=(x_pos, 1, 120), collider='box')
+    c = Entity(model='sphere', color=color.gold, scale=(1.5, 1.5, 1.5), position=(x_pos, 1, 120), collider='box')
     c.rotation_x = 90
     coins.append(c)
 
